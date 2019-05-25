@@ -1,0 +1,71 @@
+import java.util.ArrayList;
+import java.util.Scanner;
+
+public class AnagramFinder {	
+	private static String swapStringChars(String originalString, int first, int second){
+		char[] c = originalString.toCharArray();
+
+		char temp = c[first];
+		c[first] = c[second];
+		c[second] = temp;
+
+		return new String(c);
+	}
+
+	private static void anagramRec(String str, int first, int second, ArrayList<String> _anagramList){ //Anagram recursive	
+
+		//System.out.println("anagramRec ran w str:" + str + ",first: " + first + ", second: "+ second);
+
+		if(first >= (str.length())){ //has reached end of string
+			return;
+		}
+
+		boolean uniqueAna = true;
+
+		for(String ana:_anagramList){
+			if(str.equals(ana))
+				uniqueAna = false;
+		}
+
+		if(uniqueAna)
+			_anagramList.add(str);		
+
+		while(second < (str.length())){//second is not yet at the end of the string
+			anagramRec(swapStringChars(str,first,second),first+1,first+2,_anagramList);
+			second++;
+		}
+
+		if(first<(str.length()-1))
+			anagramRec(swapStringChars(str,++first,--second),first,first+1,_anagramList); //needs work here
+
+		return;
+	}
+
+	public static void doAnagram(String str){
+		ArrayList<String> anagramList = new ArrayList<String>();
+
+		anagramList.add(str);
+
+		anagramRec(str, 0, 1, anagramList);
+
+		/*for(String ana:anagramList){
+			System.out.println(ana);
+		}*/
+
+		System.out.println("there are " + anagramList.size() + " unique anagrams");
+	}
+
+	public static void main(String[] args){
+		String str=null;
+		
+		while(str != "rock"){
+			str = null;
+			
+			Scanner sc = new Scanner(System.in);
+			System.out.print("Enter the string: ");
+			str = sc.nextLine();
+
+			doAnagram(str);
+		}
+	}
+}

@@ -1,0 +1,296 @@
+package Blackjack;
+
+import java.util.ArrayList;
+import java.util.Scanner;
+
+/**
+ * Created by Lawrence Huang on 12/4/2016.
+ */
+public class BlackjackGame {
+    //Instance variables
+    //list of players
+    private ArrayList<Player> playerList;
+    private Dealer dealer;
+    private int numPlayers;
+    private Deck gameDeck;
+    private int roundNum;
+
+    //
+    Scanner sc;
+
+    //Constructors
+    public BlackjackGame(){
+        sc = new Scanner(System.in);
+        playerList = new ArrayList<Player>();
+        dealer = new Dealer();
+        numPlayers = 0;
+        roundNum = 1;
+        gameDeck = null;
+    }
+
+    //Methods that play the game
+    //Start game - number of players, player names, select number of decks to play with,
+    //create decks, starting money amount
+    public void startGame(){
+        prtMsg("Welcome to Blackjack!");
+
+        //Initialize players
+        numPlayers = Integer.parseInt(getInput("number of players"));
+
+        for(int i=1;i<=numPlayers;i++){ //player numbers start from 1, dealer is 0
+            newPlayer(i);
+        }
+
+            //TESTING
+//        playerList.add(new Player("test player",1));
+
+        //Initialize deck
+        createNewGameDeck();
+
+        //Starting money
+        for(int i=0;i<playerList.size();i++)
+            playerList.get(i).setMoneyAmount(Double.parseDouble(getInput("amount of initial betting money for "
+                    + playerList.get(i).getPlayerName())));
+
+        while(selectMenu()){
+            if(playRound()){
+                endGame();
+                return;
+            }
+            roundNum++;
+        }
+
+        endGame();
+        return;
+    }
+
+    //Play round
+    //betting
+    //deal cards - one to dealer, two to each player
+    //player decisions - hit or stand, check for each one's results
+    //dealer decisions - algorithm, check for results
+
+    public boolean playRound(){ //returns true if game should end, returns false if game should not end
+        //initial betting/deal for players
+        for(Player e:playerList){
+            e.bet();
+            e.playerDeal(gameDeck, 1);
+            e.printHand();
+        }
+
+//        //Testing
+//        ArrayList<Card> testHand = new ArrayList<Card>();
+//        testHand.add(new Card(1));
+//        testHand.add(new Card("A"));
+//
+//        playerList.get(0).setHand(testHand);
+//
+//        playerList.get(0).calculateHand();
+//
+//        prtMsg("Hand Value: "+ Integer.toString(playerList.get(0).getHandValue()));
+
+        //initial deal to dealer
+        Player.printDashedLine();
+        dealer.playerDeal(gameDeck, 1);
+        dealer.printHand(1);
+
+        //actions for each player
+        for(Player e:playerList){
+            e.playRound(gameDeck);
+        }
+
+        //computer dealer plays based on algorithm
+        dealer.playRound(gameDeck);
+
+        //determine betting results
+        determineBettingResults();
+
+        //determine if players have bankrupted
+        if(determineBankruptcies()){ //end game if all players bankrupted
+            return true;
+        }
+        else {
+            //add player cards back to deck
+            for (Player e : playerList) {
+                resetDeck(e);
+            }
+            resetDeck(dealer);
+
+            gameDeck.shuffle();
+            gameDeck.shuffle();
+
+            return false;
+        }
+    }
+
+    //End game
+    //display each player's money
+    public void endGame(){
+        sc.close();
+
+        //add player cards back to deck
+        for(Player e:playerList) {
+            resetDeck(e);
+        }
+        resetDeck(dealer);
+
+        return;
+    }
+
+    //getter methods
+    public int getNumPlayers(){
+        return numPlayers;
+    }
+    public void getPlayerList(){
+        for(Player e:playerList){
+            prtMsg(e.getPlayerName());
+        }
+    }
+    public void determineBettingResults(){
+        prtMsg("--------------End of Round " + roundNum + "-----------------");
+
+        if(dealer.getIsBusted()){
+            System.out.println("The dealer busted, all players win");
+            for(Player e:playerList)
+                e.wonBet();
+        }
+        else{
+            dealer.printHand(2);
+            prtMsg("");
+
+            for(Player e:playerList) {
+                prtMsg("Player " + e.getPlayerNumber() + ": " + e.getPlayerName());
+                Player.printDashedLine();
+                e.printHand();
+
+                if(e.getIsBusted()){
+                    prtMsg("Player " + e.getPlayerNumber() + ": " + e.getPlayerName() +
+                            " has busted and lost $" + e.getBetAmount());
+                    e.lostBet();
+                    prtMsg("");
+                }
+                else if (dealer.getHandValue() > e.getHandValue()) {
+                    prtMsg("Player " + e.getPlayerNumber() + ": " + e.getPlayerName() +
+                            " has lost to the " + dealer.getPlayerName() + " and lost $" + e.getBetAmount());
+                    e.lostBet();
+                    prtMsg("");
+                }
+                else if(dealer.getHandValue()<e.getHandValue()){
+                    prtMsg("Player " + e.getPlayerNumber() + ": " + e.getPlayerName() +
+                            " has beat the " + dealer.getPlayerName() + " and won $" + e.getBetAmount());
+                    e.wonBet();
+                    prtMsg("");
+                }
+                else {
+                    prtMsg("Player " + e.getPlayerNumber() + ": " + e.getPlayerName() +
+                            " had the same score as the " + dealer.getPlayerName() + " and has neither won nor lost money");
+                    prtMsg("");
+                }
+            }
+        }
+    }
+
+    public boolean determineBankruptcies(){
+        //check/remove for bankruptcies
+        Player.printDashedLine();
+
+        Player currentEvalPlayer = new Player(null,-1);
+
+        for(int i=0;i<playerList.size();i++){
+            currentEvalPlayer = playerList.get(i);
+            currentEvalPlayer.checkBankruptcy();
+
+            if(currentEvalPlayer.getIsBankrupted()) {
+                prtMsg("Player " + currentEvalPlayer.getPlayerNumber() + ": " +
+                        currentEvalPlayer.getPlayerName() + " is now bankrupted and has left the table");
+                resetDeck(currentEvalPlayer);//adds the cards of the bankrupted players back to deck
+                playerList.remove(i);
+                i--;
+            }
+        }
+
+        //update player numbers
+        for(Player e:playerList){
+            e.updatePlayerNumber(playerList.indexOf(e)+1);
+        }
+
+        if(playerList.size()==0) {
+            return true;
+        }
+        else{
+            prtPlayerList();
+        }
+
+        return false;
+    } //returns false if bankruptcies not game ending (continue), returns true if game should end
+
+    //Private Methods
+    //print player list
+    private void prtPlayerList(){
+        prtMsg("The following players remain at the table:");
+        if(playerList.size()==0) {
+            prtMsg("No players remain");
+            return;
+        }
+
+        for(Player e:playerList){
+            prtMsg("Player " + e.getPlayerNumber() + ": " + e.getPlayerName() + " with $" + e.getAmountMoney());
+        }
+    }
+
+    //get input
+    private String getInput(String inputString){
+        System.out.print("Please enter " + inputString + ": ");
+        return sc.nextLine();
+    }
+
+    //printmessage
+    private void prtMsg(String message){
+        System.out.println(message);
+    }
+
+    //print options menu
+    private boolean selectMenu(){
+
+        prtMsg("\n" +
+               "-----------Menu------------");
+        prtMsg("1. Start round " + roundNum);
+        prtMsg("2. Quit");
+        if(Integer.parseInt(getInput("an option (1 or 2)"))==1) {
+            System.out.println();
+            return true;
+        }
+
+        return false;
+    }
+
+    //Create new player
+    private void newPlayer(int playerNum) {
+        String name = getInput("name of Player " + (playerNum));
+
+        playerList.add(new Player(name, playerNum)); //player numbers start from 1
+    }
+
+    //Create game deck
+    private void createNewGameDeck(){
+        int numDecks = Integer.parseInt(getInput("number of decks you want to play with (1-8)"));
+
+        gameDeck = new Deck(numDecks);
+
+        gameDeck.shuffle();
+    }
+
+    private void resetDeck(Player playerToBeReset){
+        //TESTING
+//        prtMsg("Player " + playerToBeReset.getPlayerNumber() + ": " +
+//                playerToBeReset.getPlayerName() + "'s cards are being added back to the deck");
+//        prtMsg("game deck size is now " + gameDeck.getDeckSize());
+
+        gameDeck.addCards(playerToBeReset.getPlayerHand());
+
+        //TESTING
+//        prtMsg("Player " + playerToBeReset.getPlayerNumber() + ": " +
+//                playerToBeReset.getPlayerName() + "'s cards HAVE ALREADY BEEN added back to the deck");
+//        prtMsg("game deck size is now " + gameDeck.getDeckSize());
+    }
+}
